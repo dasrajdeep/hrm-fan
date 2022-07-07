@@ -65,7 +65,8 @@ noble.on('discover', function(peripheral) {
                     if(suuid.indexOf(SERVICE_UUID_HRM) >= 0 && cuuid.indexOf(CHARACTERISTIC_UUID_HRM) >= 0 && properties.includes('notify')) {
                         console.log('subscribing to hrm characteristic.');
                         c.on('data', function(data) {
-                            var hrate = data.readInt16BE();
+                            var buflen = data.length;
+                            var hrate = (buflen == 2) ? data.readInt16BE() : (data.readInt32BE() & 0x00FF0000) >> 16;
                             if(hrate != currHR && hrate < HR_MAX && hrate > 0) {
                                 currHR = hrate;
                                 if(hrate > HR_THRESH_HIGH) {
