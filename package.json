@@ -1,0 +1,16 @@
+{
+  "name": "autofan",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "noble": "^1.9.1",
+    "noble-winrt": "^0.1.1",
+    "tplink-smarthome-api": "^4.2.0"
+  }
+}

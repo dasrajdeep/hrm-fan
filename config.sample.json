@@ -1,0 +1,7 @@
+{
+    "plug-devid"    : "123456789abcdefgh",
+    "hrm-uuid"      : "adb42b3ab143b",
+    "hrm-mac"       : "00:00:00:00:00:00",
+    "hr-thres-low"  : 100,
+    "hr-thres-high" : 140
+}
