@@ -9,15 +9,21 @@ const FAN_PLUG_DEVID = config['plug-devid'];
 
 const HRM_DUAL_UUID = config['hrm-uuid'];
 const HRM_DUAL_MAC = config['hrm-mac'];
-const SERVICE_UUID_HRM = "180d";
-const CHARACTERISTIC_UUID_HRM = "2a37";
 const HR_THRESH_LOW = config['hr-thres-low'];
 const HR_THRESH_HIGH = config['hr-thres-high'];
+
+const SERVICE_UUID_HRM = "180d";
+const CHARACTERISTIC_UUID_HRM = "2a37";
 const HR_MAX = 220;
+const DEVMASK_PLUG = 1;
+const DEVMASK_HRM = 2;
 
 var hrm = null;
 var plug = null;
 
+var initDev = 0;
+
+var init = false;
 var currHR = null;
 var isOn = false;
 
@@ -31,9 +37,16 @@ function switchOffFan() {
     if(plug != null && isOn) plug.setPowerState(false);
 }
 
+function checkInit(devMask) {
+    initDev |= devMask;
+    init = (initDev == 3);
+    if(init) console.log('Devices initialized.');
+}
+
 client.startDiscovery().on('device-new', (device) => {
     if(device.deviceId === FAN_PLUG_DEVID) {
         console.log('Fan smart plug found!');
+        checkInit(DEVMASK_PLUG);
         plug = device;
         if(plug._sysInfo.relay_state == 1) isOn = true;
     }
@@ -52,6 +65,7 @@ noble.on('scanStart', function() {
 noble.on('discover', function(peripheral) {
     if(peripheral.uuid === HRM_DUAL_UUID) {
         console.log('Discovered HRM peripheral.');
+        checkInit(DEVMASK_HRM);
         hrm = peripheral;
         noble.stopScanning();
         hrm.connect(function(err) {
@@ -65,6 +79,9 @@ noble.on('discover', function(peripheral) {
                     if(suuid.indexOf(SERVICE_UUID_HRM) >= 0 && cuuid.indexOf(CHARACTERISTIC_UUID_HRM) >= 0 && properties.includes('notify')) {
                         console.log('subscribing to hrm characteristic.');
                         c.on('data', function(data) {
+                            if(!init) {
+                                return;
+                            }
                             var buflen = data.length;
                             var hrate = (buflen == 2) ? data.readInt16BE() : (data.readInt32BE() & 0x00FF0000) >> 16;
                             if(hrate != currHR && hrate < HR_MAX && hrate > 0) {
@@ -90,7 +107,7 @@ noble.on('discover', function(peripheral) {
 
 noble.startScanning();
 
-const requestListener = function (req, res) {
+/*const requestListener = function (req, res) {
     var cmd = req.url.split('/')[1];
     res.writeHead(200);
     if(cmd === 'on') {
@@ -111,4 +128,4 @@ const requestListener = function (req, res) {
 }
 
 const server = http.createServer(requestListener);
-server.listen(3000);
+server.listen(3000);*/
