@@ -1,0 +1,19 @@
+<html>
+    <head>
+        <title>HR Based Fan Controller</title>
+        <script src="js/socket.io.min.js"></script>
+        <script>
+            var socket = io();
+            socket.on('hr', function(hr) {
+                document.getElementById('hr').innerText = hr.data;
+            });
+            socket.on('fan', function(state) {
+                document.getElementById('fan').innerText = state.data;
+            });
+        </script>
+    </head>
+    <body>
+        <h1>Fan State: <span id="fan"></span></h1>
+        <h1>Heart Rate: <span id="hr"></span></h1>
+    </body>
+</html>

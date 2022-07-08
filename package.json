@@ -11,6 +11,9 @@
   "dependencies": {
     "noble": "^1.9.1",
     "noble-winrt": "^0.1.1",
+    "node-router": "^0.1.6",
+    "node-static": "^0.7.11",
+    "socket.io": "^4.5.1",
     "tplink-smarthome-api": "^4.2.0"
   }
 }
