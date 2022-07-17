@@ -4,7 +4,7 @@ const fs = require('fs');
 const http = require('http');
 const static = require('node-static');
 const Router = require('node-router');
-const noble = require('noble-winrt');
+const noble = require('@abandonware/noble');
 
 const config = JSON.parse(fs.readFileSync("config.json"));
 

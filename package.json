@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@abandonware/bluetooth-hci-socket": "^0.5.3-8",
+    "@abandonware/noble": "^1.9.2-15",
     "noble": "^1.9.1",
     "noble-winrt": "^0.1.1",
     "node-router": "^0.1.6",
