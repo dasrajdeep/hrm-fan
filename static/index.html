@@ -33,6 +33,10 @@
                 $('#hr-display').show();
                 $('#hr').text(hrm.hr);
             });
+            socket.on('plug', function(plug) {
+                var state = (plug.state == 1) ? 'on' : 'off';
+                $('#fan-' + state).attr('checked', 'checked');
+            });
             $(document).ready(function() {
                 $('#connect').on('click', function(e) {
                     e.preventDefault();
@@ -44,10 +48,24 @@
                         'actuator'      : actuatorId,
                         'thresh'        : 130
                     });
+                    $(this).prop('disabled', true);
+                    $('select').prop('disabled', true);
                 });
                 $('#hr-thresh-high').on('change', function() {
                     var hrThresh = $(this).val();
                     $('#hr-thresh').text(hrThresh);
+                    socket.emit('settings', {
+                        'type'  : 'hrm',
+                        'key'   : 'threshold_high',
+                        'value' : hrThresh
+                    });
+                });
+                $('.btn-check').on('click', function() {
+                    var state = $(this).val();
+                    console.log(state);
+                    $.get('/' + state, function(response) {
+                        if(!response.success) alert(response.err);
+                    });
                 });
             });
         </script>
@@ -67,6 +85,17 @@
             <br>
             <div>
                 <button id="connect" type="button" class="btn btn-primary">Connect</button>
+            </div>
+            <br>
+            <div>
+                <h1>Fan</h1>
+                <div class="btn-group" role="group" aria-label="Fan State">
+                    <input type="radio" class="btn-check" name="btnradio-fan" value="off" id="fan-off" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="fan-off">Off</label> 
+                    
+                    <input type="radio" class="btn-check" name="btnradio-fan" value="on" id="fan-on" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="fan-on">On</label> 
+                </div>
             </div>
             <br>
             <div id="hr-display" style="display: none;">

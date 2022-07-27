@@ -10,11 +10,6 @@ const noble = require('@abandonware/noble');
 
 const config = JSON.parse(fs.readFileSync("config.json"));
 
-const DEFAULT_THRESHOLDS = {
-    'HR_TRIGGER'    : 170,
-    'HR_MAX'        : 220
-};
-
 const SERVICE_UUIDS = {
     '180d'  : 'HEART_RATE',
     '1816'  : 'SPEED_CADENCE',
@@ -36,18 +31,28 @@ const SERVICE_DESCRIPTIONS = {
 
 const LISTEN_PORT = 3000;
 
-var plug = null;
+var settings = {
+    'hrm'   : {
+        'threshold_low'     : 60,
+        'threshold_high'    : 130
+    }
+};
+
+var currentSensorData = {
+    'hrm'   : null
+};
+
+var actuatorState = {
+    'plug'   : null
+};
 
 var sock = null;
 
-var initDev = 0;
-
 var init = false;
-var isOn = false;
 
 const client = new Client();
 
-const wsChannels = [ 'device', 'fan', 'hrm' ];
+const wsChannels = [ 'device', 'plug', 'hrm' ];
 
 var discoveredIoTDevices = {};
 var discoveredBLEDevices = {};
@@ -66,6 +71,8 @@ function sendIoTDeviceList() {
     for(var i in discoveredIoTDevices) {
         var info = discoveredIoTDevices[i]['info'];
         if(info == null) continue;
+        var devType = (info.mic_type == undefined) ? info.type : info.mic_type;
+        if(!devType.includes('PLUG')) continue;
         wsNotify('device', {
             'type'  : 'actuator',
             'id'    : info.deviceId,
@@ -85,24 +92,66 @@ function sendBLEDeviceList() {
     }
 }
 
-function switchOnFan() {
-    if(plug != null && !isOn) {
-        plug.setPowerState(true);
-    }
-}
-
-function switchOffFan() {
-    if(plug != null && isOn) {
-        plug.setPowerState(false);
-    }
-}
-
 function getIoTDeviceState(deviceId) {
     if(deviceId in discoveredIoTDevices) {
         discoveredIoTDevices[deviceId]['device'].getSysInfo().then(function(info) {
             discoveredIoTDevices[deviceId]['info'] = info;
-            if(info.relay_state !== undefined) {}
+            var devType = (info.mic_type == undefined) ? info.type : info.mic_type;
+            if(devType.includes('PLUG') && info.deviceId == selectedActuator) {
+                wsNotify('plug', {
+                    'state' : info.relay_state
+                });
+            }
         });
+    }
+}
+
+function selectActuatorPlug(deviceId) {
+    selectedActuator = deviceId;
+    if(deviceId in discoveredIoTDevices) actuatorState['plug'] = discoveredIoTDevices[deviceId]['device'];
+    getIoTDeviceState(deviceId);
+}
+
+function selectBLESensor(deviceId) {
+    selectedSensor = deviceId;
+    if(selectedSensor in discoveredBLEDevices) {
+        var peripheral = discoveredBLEDevices[selectedSensor]['peripheral'];
+        connectBLEPeripheral(peripheral);
+    }
+}
+
+function switchOnPlug() {
+    var plug = actuatorState['plug'];
+    if(plug != null && plug._sysInfo.relay_state == 0) {
+        plug.setPowerState(true);
+        getIoTDeviceState(selectedActuator);
+    }
+}
+
+function switchOffPlug() {
+    var plug = actuatorState['plug'];
+    if(plug != null && plug._sysInfo.relay_state == 1) {
+        plug.setPowerState(false);
+        getIoTDeviceState(selectedActuator);
+    }
+}
+
+var actions = {
+    'hrm'   : {
+        'threshold_high'    : switchOnPlug,
+        'threshold_low'     : switchOffPlug
+    }
+};
+
+function monitor() {
+    for(var dev in currentSensorData) {
+        if(currentSensorData[dev] == null) continue;
+        if(dev == 'hrm') {
+            if(currentSensorData[dev] > settings[dev]['threshold_high']) {
+                console.log('HRM Threshold exceeded');
+                actions[dev]['threshold_high']();
+            }
+        }
     }
 }
 
@@ -114,6 +163,7 @@ function enumerateDevices() {
         console.log(devType + '\t: ' + info.model + ' (' + info.alias + ')');
     }
     sendIoTDeviceList();
+    setInterval(monitor, 1000);
 }
 
 setTimeout(enumerateDevices, 3000);
@@ -128,8 +178,6 @@ client.startDiscovery().on('device-new', (device) => {
 noble.on('scanStart', function() {
     console.log('Scanning for devices...');
 });
-
-function monitor() {}
 
 function processHRData(data) {
     var buflen = data.length;
@@ -211,8 +259,9 @@ const router = Router();
 const route = router.push;
 
 route('/on', function(req, res, next) {
+    var plug = actuatorState['plug'];
     if(plug._sysInfo.relay_state == 0) {
-        switchOnFan();
+        switchOnPlug();
         res.send(JSON.stringify({
             'success'   : true,
             'err'       : null
@@ -226,8 +275,9 @@ route('/on', function(req, res, next) {
 });
 
 route('/off', function(req, res, next) {
+    var plug = actuatorState['plug'];
     if(plug._sysInfo.relay_state == 1) {
-        switchOffFan();
+        switchOffPlug();
         res.send(JSON.stringify({
             'success'   : true,
             'err'       : null
@@ -257,11 +307,14 @@ io.on('connection', function(socket) {
     sendIoTDeviceList();
     sendBLEDeviceList();
     sock.on('monitor', function(data) {
-        selectedSensor = data.sensor;
-        selectedActuator = data.actuator;
-        if(selectedSensor in discoveredBLEDevices) {
-            var peripheral = discoveredBLEDevices[selectedSensor]['peripheral'];
-            connectBLEPeripheral(peripheral);
+        selectBLESensor(data.sensor);
+        selectActuatorPlug(data.actuator);
+    });
+    sock.on('settings', function(data) {
+        if(data.type in settings) {
+            if(data.key in settings[data.type]) {
+                settings[data.type][data.key] = data.value;
+            }
         }
     });
 });
